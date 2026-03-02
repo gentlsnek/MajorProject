@@ -2,3 +2,8 @@
 /CCCS-CIC-Benign-CSVs
 /CCCS-CIC-Malicious-CSVs
 /.venv
+/check.py
+/combine.py
+/header.py
+/benign.csv
+/malware.csv

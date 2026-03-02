@@ -1,97 +1,50 @@
 import pandas as pd
-import glob
-from tqdm import tqdm
-
-# -------- BENIGN FILES --------
-import pandas as pd
-import glob
-from tqdm import tqdm
-
-print("🔹 Loading benign CSV files...")
-
-benign_files = glob.glob("CCCS-CIC-Benign-CSVs/*.csv")
-
-chunk_size = 500_000
-chunks = []
-
-for f in tqdm(benign_files, desc="Reading benign files"):
-    for chunk in pd.read_csv(
-        f,
-        header=None,
-        chunksize=chunk_size,
-        dtype="float32"   # all numeric → fast
-    ):
-        chunk["label"] = 0  # benign
-        chunks.append(chunk)
-
-benign_df = pd.concat(chunks, ignore_index=True)
-
-print("Benign files loaded.")
-print("Saving benigndataset.parquet ...")
-
-benign_df.to_parquet("benigndataset.parquet", index=False)
-
-print("benigndataset.parquet saved.")
-
-
-# -------- MALICIOUS FILES --------
-import pandas as pd
-import glob
-from tqdm import tqdm
-import pyarrow as pa
-import pyarrow.parquet as pq
 import os
+from tqdm import tqdm
 
-chunk_size = 300_000
-output_file = "maliciousdataset.parquet"
+# Define the paths based on your folders
+benign_folder = 'CCCS-CIC-Benign-CSVs/'
+malicious_folder = 'CCCS-CIC-Malicious-CSVs/'
 
-print("🔹 Loading malicious CSV files...")
+# 1. Process Benign Files (Label 0)
+benign_files = [f for f in os.listdir(benign_folder) if f.endswith('.csv')]
+benign_list = []
 
-mal_files = glob.glob("CCCS-CIC-Malicious-CSVs/*.csv")
+print("Reading Benign files...")
+for file in tqdm(benign_files, desc="Benign Progress"):
+    df = pd.read_csv(os.path.join(benign_folder, file))
+    df['label'] = 0
+    benign_list.append(df)
+    df = df.astype('float32', errors='ignore')
 
-parquet_writer = None
-schema = None
-col_names = None  # locked column names
+print("Combining Benign data...")
+benign_combined = pd.concat(benign_list, ignore_index=True)
+benign_combined.to_csv('benign_dataset.csv', index=False)
+print(f"Saved: benign_dataset.csv ({len(benign_combined)} rows)")
 
-for file in tqdm(mal_files, desc="Files"):
-    filename = os.path.basename(file)
 
-    for chunk in tqdm(
-        pd.read_csv(file, header=None, chunksize=chunk_size, low_memory=False),
-        desc=f"Chunks: {filename}",
-        leave=False
-    ):
-        # force column names to strings
-        if col_names is None:
-            col_names = [str(c) for c in chunk.columns] + ["label"]
-        chunk.columns = [str(c) for c in chunk.columns]
 
-        # add label WITHOUT fragmentation
-        label_col = pd.Series(1, index=chunk.index, name="label")
-        chunk = pd.concat([chunk, label_col], axis=1)
+# 2. Process Malicious Files (Multiclass Labels 1-14)
+malicious_files = sorted([f for f in os.listdir(malicious_folder) if f.endswith('.csv')])
+malicious_list = []
+mapping = {}
 
-        # lock schema from first chunk
-        if schema is None:
-            table = pa.Table.from_pandas(chunk, preserve_index=False)
-            schema = table.schema
-            parquet_writer = pq.ParquetWriter(output_file, schema)
-        else:
-            table = pa.Table.from_pandas(chunk, schema=schema, preserve_index=False)
+print("\nReading Malicious files...")
+for index, file in enumerate(tqdm(malicious_files, desc="Malicious Progress")):
+    label_value = index + 1
+    class_name = file.replace('.csv', '')
+    mapping[class_name] = label_value
+    
+    df = pd.read_csv(os.path.join(malicious_folder, file))
+    df['label'] = label_value
+    malicious_list.append(df)
+    df = df.astype('float32', errors='ignore')
 
-        parquet_writer.write_table(table)
+print("Combining Malicious data...")
+malicious_combined = pd.concat(malicious_list, ignore_index=True)
+malicious_combined.to_csv('malicious_multiclass_dataset.csv', index=False)
 
-if parquet_writer:
-    parquet_writer.close()
-
-print("maliciousdataset.parquet saved.")
-
-# -------- COMBINE --------
-print("\n🔹 Combining both datasets...")
-
-df = pd.concat([benign_df, mal_df], ignore_index=True)
-
-print("Final combined dataset ready.")
-print("Benign shape:", benign_df.shape)
-print("Malware shape:", mal_df.shape)
-print("Final dataset shape:", df.shape)
-print(df["label"].value_counts())
+print(f"\nSaved: malicious_multiclass_dataset.csv ({len(malicious_combined)} rows)")
+print("\nFinal Label Mapping:")
+for name, val in mapping.items():
+    print(f"Label {val}: {name}")
