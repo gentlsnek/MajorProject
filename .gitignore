@@ -5,5 +5,4 @@
 /check.py
 /combine.py
 /header.py
-/benign.csv
-/malware.csv
+/processedData 
