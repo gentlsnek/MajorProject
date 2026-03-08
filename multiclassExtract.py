@@ -25,7 +25,7 @@ for label_id, f in enumerate(tqdm(mal_files, desc="Processing malware families")
 
     mal_list.append(df)
 
-    print(f"{family_name} → label {label_id}, samples: {len(df)}")
+    print(f"{family_name} → label {label_id + 1}, samples: {len(df)}")
 
 # combine all families
 malware_multiclass = pd.concat(mal_list, ignore_index=True)
