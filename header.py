@@ -1,5 +1,6 @@
 import pandas as pd
 
-dt = pd.read_parquet('maliciousdataset.parquet')
 
-print(dt.shape)
+df = pd.read_parquet('cicandmal2020-static.parquet')
+
+print(df.shape)
